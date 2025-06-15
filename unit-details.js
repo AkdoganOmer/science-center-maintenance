@@ -98,7 +98,7 @@ async function loadUnitDetails() {
             technicalDocuments.innerHTML = unit.documents.map(doc => `
                 <div class="document-item d-flex align-items-center mb-2">
                     <i class="bi bi-file-pdf text-danger me-2"></i>
-                    <a href="${doc.url}" target="_blank" class="text-decoration-none">
+                    <a href="${doc.data}" target="_blank" class="text-decoration-none" download="${doc.name}">
                         ${doc.name}
                     </a>
                     <small class="text-muted ms-2">(${formatFileSize(doc.size)})</small>
@@ -174,7 +174,7 @@ function uploadImages() {
 }
 
 // Handle document upload
-async function uploadDocuments() {
+function uploadDocuments() {
     const fileInput = document.getElementById('documentUpload');
     const files = Array.from(fileInput.files);
     
@@ -187,30 +187,30 @@ async function uploadDocuments() {
         return;
     }
 
-    try {
-        const uploadPromises = files.map(async file => {
-            // Create a storage reference
-            const storageRef = storage.ref();
-            const fileRef = storageRef.child(`documents/${Date.now()}_${file.name}`);
-            
-            // Upload file
-            await fileRef.put(file);
-            
-            // Get download URL
-            const downloadURL = await fileRef.getDownloadURL();
-            
-            return {
-                name: file.name,
-                url: downloadURL,
-                size: file.size,
-                type: file.type,
-                path: fileRef.fullPath
+    // Validate file sizes (max 5MB per file)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    if (oversizedFiles.length > 0) {
+        alert('Her bir PDF dosyası en fazla 5MB boyutunda olabilir.');
+        return;
+    }
+
+    const documentPromises = files.map(file => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                resolve({
+                    name: file.name,
+                    data: e.target.result,
+                    size: file.size,
+                    type: file.type
+                });
             };
+            reader.readAsDataURL(file);
         });
+    });
 
-        const documents = await Promise.all(uploadPromises);
-
-        // Update UI
+    Promise.all(documentPromises).then(documents => {
         const documentList = document.getElementById('documentList');
         documentList.innerHTML = documents.map(doc => `
             <div class="document-item d-flex align-items-center mb-2">
@@ -222,12 +222,7 @@ async function uploadDocuments() {
 
         // Store documents temporarily
         documentList.dataset.documents = JSON.stringify(documents);
-
-        console.log('Dokümanlar başarıyla yüklendi:', documents);
-    } catch (error) {
-        console.error('Doküman yükleme hatası:', error);
-        alert('Dokümanlar yüklenirken bir hata oluştu: ' + error.message);
-    }
+    });
 }
 
 // Format file size
@@ -284,19 +279,6 @@ async function saveUnitDetails() {
         // Update documents if new ones were uploaded
         const documentList = document.getElementById('documentList');
         if (documentList.dataset.documents) {
-            // Delete old documents from storage if they exist
-            if (units[unitIndex].documents) {
-                for (const doc of units[unitIndex].documents) {
-                    if (doc.path) {
-                        try {
-                            await storage.ref(doc.path).delete();
-                        } catch (error) {
-                            console.error('Eski doküman silinirken hata:', error);
-                        }
-                    }
-                }
-            }
-            
             units[unitIndex].documents = JSON.parse(documentList.dataset.documents);
         }
 
