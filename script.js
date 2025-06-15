@@ -1,59 +1,185 @@
-// Get galleries from localStorage
-function getGalleries() {
+// Firebase yüklenene kadar bekle
+let db;
+
+function initializeFirebase() {
+    try {
+        // Firebase'in başlatıldığından emin ol
+        if (firebase && firebase.firestore) {
+            db = firebase.firestore();
+            console.log('Firebase başarıyla başlatıldı');
+            // LocalStorage'dan Firestore'a veri aktarımını kontrol et
+            migrateGalleriesToFirestore();
+            // Sayfayı başlat
+            createGalleryCards();
+        } else {
+            console.error('Firebase yüklenemedi');
+        }
+    } catch (error) {
+        console.error('Firebase başlatılırken hata:', error);
+    }
+}
+
+// LocalStorage'dan galerileri al
+function getLocalGalleries() {
     const galleries = localStorage.getItem('galleries');
     return galleries ? JSON.parse(galleries) : [];
 }
 
-// Function to create gallery cards
-function createGalleryCards() {
+// LocalStorage'dan Firestore'a galerileri aktar
+async function migrateGalleriesToFirestore() {
+    try {
+        const localGalleries = getLocalGalleries();
+        if (localGalleries.length === 0) {
+            console.log('LocalStorage\'da galeri bulunamadı');
+            return;
+        }
+
+        // Firestore'daki mevcut galerileri kontrol et
+        const snapshot = await db.collection('galleries').get();
+        if (!snapshot.empty) {
+            console.log('Firestore\'da zaten galeriler var');
+            return;
+        }
+
+        // Galerileri Firestore'a ekle
+        for (const gallery of localGalleries) {
+            await db.collection('galleries').doc(gallery.id.toString()).set({
+                name: gallery.name,
+                description: gallery.description,
+                totalUnits: gallery.totalUnits || 0,
+                faultyUnits: gallery.faultyUnits || 0,
+                units: gallery.units || [],
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        console.log('Galeriler başarıyla Firestore\'a aktarıldı');
+    } catch (error) {
+        console.error('Galeri aktarımı sırasında hata:', error);
+    }
+}
+
+// Galerileri Firestore'dan al
+async function getGalleries() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return [];
+    }
+
+    const galleries = [];
+    try {
+        const snapshot = await db.collection('galleries').get();
+        snapshot.forEach(doc => {
+            galleries.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        console.log('Galeriler başarıyla yüklendi:', galleries);
+    } catch (error) {
+        console.error('Galeriler yüklenirken hata:', error);
+    }
+    return galleries;
+}
+
+// Galeri ekle
+async function addGallery(gallery) {
+    if (!db) {
+        throw new Error('Firebase henüz başlatılmadı');
+    }
+
+    try {
+        const docRef = await db.collection('galleries').add({
+            name: gallery.name,
+            totalUnits: gallery.totalUnits || 0,
+            faultyUnits: gallery.faultyUnits || 0,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('Galeri başarıyla eklendi. ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('Galeri eklenirken hata:', error);
+        throw error;
+    }
+}
+
+// Galeri kartlarını oluştur
+async function createGalleryCards() {
     const galleryContainer = document.getElementById('galleryCards');
     galleryContainer.innerHTML = '';
 
-    const galleries = getGalleries();
+    try {
+        const galleries = await getGalleries();
 
-    galleries.forEach(gallery => {
-        const card = document.createElement('div');
-        card.className = 'col-md-4 mb-4';
-        card.innerHTML = `
-            <div class="card gallery-card" onclick="showGalleryDetails(${gallery.id})">
-                <div class="card-body">
-                    <h5 class="card-title">${gallery.name}</h5>
-                    <div class="stat-box total-units">
-                        <div class="stat-label">Toplam Ünite Sayısı</div>
-                        <div class="stat-value">${gallery.totalUnits}</div>
-                    </div>
-                    <div class="stat-box faulty-units">
-                        <div class="stat-label">Arızalı Ünite Sayısı</div>
-                        <div class="stat-value">${gallery.faultyUnits}</div>
+        galleries.forEach(gallery => {
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="card gallery-card" onclick="showGalleryDetails('${gallery.id}')">
+                    <div class="card-body text-center">
+                        <h5 class="card-title mb-4">${gallery.name}</h5>
+                        <div class="stat-box total-units">
+                            <div class="stat-label">Toplam Ünite Sayısı</div>
+                            <div class="stat-value">${gallery.totalUnits || 0}</div>
+                        </div>
+                        <div class="stat-box faulty-units">
+                            <div class="stat-label">Arızalı Ünite Sayısı</div>
+                            <div class="stat-value">${gallery.faultyUnits || 0}</div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
-        galleryContainer.appendChild(card);
-    });
+            `;
+            galleryContainer.appendChild(card);
+        });
 
-    // Eğer hiç galeri yoksa bilgilendirme mesajı göster
-    if (galleries.length === 0) {
+        if (galleries.length === 0) {
+            galleryContainer.innerHTML = `
+                <div class="col-12 text-center">
+                    <div class="alert alert-info">
+                        Henüz hiç galeri eklenmemiş.
+                        ${isAdmin() ? ' Galeri eklemek için "Galeri Yönetimi" sayfasını kullanabilirsiniz.' : ''}
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Hata:', error);
         galleryContainer.innerHTML = `
             <div class="col-12 text-center">
-                <div class="alert alert-info">
-                    Henüz hiç galeri eklenmemiş.
-                    ${isAdmin() ? ' Galeri eklemek için "Galeri Yönetimi" sayfasını kullanabilirsiniz.' : ''}
+                <div class="alert alert-danger">
+                    Galeriler yüklenirken bir hata oluştu.
                 </div>
             </div>
         `;
     }
 }
 
-// Function to handle gallery card click
-function showGalleryDetails(galleryId) {
-    // Store the selected gallery ID in localStorage
+// Galeri detaylarını göster
+async function showGalleryDetails(galleryId) {
     localStorage.setItem('selectedGalleryId', galleryId);
-    // Navigate to the gallery details page
     window.location.href = `gallery-details.html`;
 }
 
-// Initialize the page
+// Test için galeri ekle
+async function testAddGallery() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+    try {
+        const galleryId = await addGallery({
+            name: "Test Galerisi",
+            totalUnits: 5,
+            faultyUnits: 1
+        });
+        console.log('Test galerisi eklendi:', galleryId);
+        createGalleryCards(); // Sayfayı yenile
+    } catch (error) {
+        console.error('Test galerisi eklenirken hata:', error);
+    }
+}
+
+// Sayfayı başlat
 document.addEventListener('DOMContentLoaded', () => {
-    createGalleryCards();
-}); 
+    // Firebase'in yüklenmesi için kısa bir süre bekle
+    setTimeout(initializeFirebase, 500);
+});

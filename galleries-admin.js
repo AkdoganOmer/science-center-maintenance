@@ -1,3 +1,22 @@
+// Firebase referansı
+let db;
+
+// Firebase'i başlat
+function initializeFirebase() {
+    try {
+        if (firebase && firebase.firestore) {
+            db = firebase.firestore();
+            console.log('Firebase başarıyla başlatıldı');
+            // Sayfayı başlat
+            displayGalleries();
+        } else {
+            console.error('Firebase yüklenemedi');
+        }
+    } catch (error) {
+        console.error('Firebase başlatılırken hata:', error);
+    }
+}
+
 // Check if user is admin
 function checkAdminAccess() {
     const username = localStorage.getItem('username');
@@ -7,44 +26,49 @@ function checkAdminAccess() {
     }
 }
 
-// Get galleries from localStorage or initialize
-function getGalleries() {
-    const galleries = localStorage.getItem('galleries');
-    return galleries ? JSON.parse(galleries) : [
-        { 
-            id: 1, 
-            name: "Uzay Galerisi", 
-            description: "Uzay ve astronomi sergisi", 
-            totalUnits: 3, 
-            faultyUnits: 1,
-            units: [
-                { id: 101, name: "Güneş Sistemi Modeli", description: "Güneş sistemi maket", status: "Çalışıyor", lastMaintenance: "2024-02-15" },
-                { id: 102, name: "Mars Yüzeyi", description: "Mars yüzeyi simülasyonu", status: "Arızalı", lastMaintenance: "2024-01-20" },
-                { id: 103, name: "Uzay İstasyonu", description: "ISS modeli", status: "Çalışıyor", lastMaintenance: "2024-02-10" }
-            ]
-        },
-        { 
-            id: 2, 
-            name: "Dünya ve Yaşam Galerisi", 
-            description: "Dünya ve yaşam formları sergisi", 
-            totalUnits: 2, 
-            faultyUnits: 0,
-            units: [
-                { id: 201, name: "Dinozor Fosilleri", description: "Dinozor fosil örnekleri", status: "Çalışıyor", lastMaintenance: "2024-02-12" },
-                { id: 202, name: "DNA Modeli", description: "İnteraktif DNA modeli", status: "Çalışıyor", lastMaintenance: "2024-02-01" }
-            ]
-        }
-    ];
+// Get galleries from Firestore
+async function getGalleries() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return [];
+    }
+
+    const galleries = [];
+    try {
+        const snapshot = await db.collection('galleries').get();
+        snapshot.forEach(doc => {
+            galleries.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        console.log('Galeriler başarıyla yüklendi:', galleries);
+        return galleries;
+    } catch (error) {
+        console.error('Galeriler alınırken hata:', error);
+        return [];
+    }
 }
 
-// Save galleries to localStorage
-function saveGalleries(galleries) {
-    localStorage.setItem('galleries', JSON.stringify(galleries));
+// Save gallery to Firestore
+async function saveGallery(gallery) {
+    try {
+        if (gallery.id) {
+            // Update existing gallery
+            await db.collection('galleries').doc(gallery.id.toString()).set(gallery);
+        } else {
+            // Add new gallery
+            await db.collection('galleries').add(gallery);
+        }
+    } catch (error) {
+        console.error('Galeri kaydedilirken hata:', error);
+        throw error;
+    }
 }
 
 // Display galleries in table
-function displayGalleries() {
-    const galleries = getGalleries();
+async function displayGalleries() {
+    const galleries = await getGalleries();
     const tableBody = document.getElementById('galleriesTable');
     tableBody.innerHTML = '';
 
@@ -59,15 +83,14 @@ function displayGalleries() {
         };
         
         row.innerHTML = `
-            <td>${gallery.id}</td>
             <td>${gallery.name}</td>
-            <td>${gallery.totalUnits}</td>
-            <td>${gallery.faultyUnits}</td>
+            <td>${gallery.totalUnits || 0}</td>
+            <td>${gallery.faultyUnits || 0}</td>
             <td class="action-buttons">
-                <button class="btn btn-sm btn-primary me-2" onclick="editGallery(${gallery.id})">
+                <button class="btn btn-sm btn-primary me-2" onclick="editGallery('${gallery.id}')">
                     <i class="bi bi-pencil"></i> Düzenle
                 </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteGallery(${gallery.id})">
+                <button class="btn btn-sm btn-danger" onclick="deleteGallery('${gallery.id}')">
                     <i class="bi bi-trash"></i> Sil
                 </button>
             </td>
@@ -77,7 +100,13 @@ function displayGalleries() {
 }
 
 // Add new gallery
-function addGallery() {
+async function addGallery() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        alert('Sistem hazır değil, lütfen sayfayı yenileyin');
+        return;
+    }
+
     const name = document.getElementById('galleryName').value;
     const description = document.getElementById('galleryDescription').value;
     
@@ -86,46 +115,62 @@ function addGallery() {
         return;
     }
 
-    const galleries = getGalleries();
-    const newId = galleries.length > 0 ? Math.max(...galleries.map(g => g.id)) + 1 : 1;
+    try {
+        const newGallery = {
+            name: name,
+            description: description,
+            totalUnits: 0,
+            faultyUnits: 0,
+            units: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
 
-    const newGallery = {
-        id: newId,
-        name: name,
-        description: description,
-        totalUnits: 0,
-        faultyUnits: 0,
-        units: []
-    };
+        const docRef = await db.collection('galleries').add(newGallery);
+        console.log('Yeni galeri eklendi. ID:', docRef.id);
+        await displayGalleries();
 
-    galleries.push(newGallery);
-    saveGalleries(galleries);
-    displayGalleries();
-
-    // Close modal and reset form
-    const modal = bootstrap.Modal.getInstance(document.getElementById('addGalleryModal'));
-    modal.hide();
-    document.getElementById('addGalleryForm').reset();
+        // Close modal and reset form
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addGalleryModal'));
+        modal.hide();
+        document.getElementById('addGalleryForm').reset();
+    } catch (error) {
+        console.error('Galeri eklenirken hata:', error);
+        alert('Galeri eklenirken bir hata oluştu: ' + error.message);
+    }
 }
 
 // Load gallery data for editing
-function editGallery(id) {
-    const galleries = getGalleries();
-    const gallery = galleries.find(g => g.id === id);
-    
-    if (gallery) {
-        document.getElementById('editGalleryId').value = gallery.id;
-        document.getElementById('editGalleryName').value = gallery.name;
-        document.getElementById('editGalleryDescription').value = gallery.description;
-        
-        const modal = new bootstrap.Modal(document.getElementById('editGalleryModal'));
-        modal.show();
+async function editGallery(id) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    try {
+        const doc = await db.collection('galleries').doc(id).get();
+        if (doc.exists) {
+            const gallery = { id: doc.id, ...doc.data() };
+            document.getElementById('editGalleryId').value = gallery.id;
+            document.getElementById('editGalleryName').value = gallery.name;
+            document.getElementById('editGalleryDescription').value = gallery.description || '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('editGalleryModal'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error('Galeri bilgileri alınırken hata:', error);
+        alert('Galeri bilgileri alınırken bir hata oluştu');
     }
 }
 
 // Update gallery
-function updateGallery() {
-    const id = parseInt(document.getElementById('editGalleryId').value);
+async function updateGallery() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    const id = document.getElementById('editGalleryId').value;
     const name = document.getElementById('editGalleryName').value;
     const description = document.getElementById('editGalleryDescription').value;
 
@@ -134,51 +179,69 @@ function updateGallery() {
         return;
     }
 
-    const galleries = getGalleries();
-    const index = galleries.findIndex(g => g.id === id);
-    
-    if (index !== -1) {
-        galleries[index] = {
-            ...galleries[index],
+    try {
+        const docRef = db.collection('galleries').doc(id);
+        await docRef.update({
             name: name,
-            description: description
-        };
+            description: description,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         
-        saveGalleries(galleries);
-        displayGalleries();
+        await displayGalleries();
 
         // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('editGalleryModal'));
         modal.hide();
+    } catch (error) {
+        console.error('Galeri güncellenirken hata:', error);
+        alert('Galeri güncellenirken bir hata oluştu');
     }
 }
 
 // Delete gallery
-function deleteGallery(id) {
+async function deleteGallery(id) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
     if (confirm('Bu galeriyi silmek istediğinizden emin misiniz?')) {
-        const galleries = getGalleries();
-        const filteredGalleries = galleries.filter(g => g.id !== id);
-        saveGalleries(filteredGalleries);
-        displayGalleries();
+        try {
+            await db.collection('galleries').doc(id).delete();
+            await displayGalleries();
+        } catch (error) {
+            console.error('Galeri silinirken hata:', error);
+            alert('Galeri silinirken bir hata oluştu');
+        }
     }
 }
 
 // Show gallery units
-function showGalleryUnits(galleryId) {
-    const galleries = getGalleries();
-    const gallery = galleries.find(g => g.id === galleryId);
-    
-    if (gallery) {
-        // Update UI
-        document.getElementById('gallerySection').style.display = 'none';
-        document.getElementById('unitsSection').style.display = 'block';
-        document.getElementById('selectedGalleryName').textContent = `${gallery.name} - Üniteler`;
-        
-        // Store selected gallery ID
-        localStorage.setItem('selectedGalleryId', galleryId);
-        
-        // Display units
-        displayUnits(gallery.units);
+async function showGalleryUnits(galleryId) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    try {
+        const doc = await db.collection('galleries').doc(galleryId).get();
+        if (doc.exists) {
+            const gallery = { id: doc.id, ...doc.data() };
+            
+            // Update UI
+            document.getElementById('gallerySection').style.display = 'none';
+            document.getElementById('unitsSection').style.display = 'block';
+            document.getElementById('selectedGalleryName').textContent = `${gallery.name} - Üniteler`;
+            
+            // Store selected gallery ID
+            localStorage.setItem('selectedGalleryId', galleryId);
+            
+            // Display units
+            displayUnits(gallery.units || []);
+        }
+    } catch (error) {
+        console.error('Galeri detayları alınırken hata:', error);
+        alert('Galeri detayları alınırken bir hata oluştu');
     }
 }
 
@@ -198,7 +261,6 @@ function displayUnits(units) {
         const row = document.createElement('tr');
         row.className = unit.status === 'Arızalı' ? 'table-danger' : '';
         row.innerHTML = `
-            <td>${unit.id}</td>
             <td>${unit.name}</td>
             <td>
                 <span class="badge ${unit.status === 'Arızalı' ? 'bg-danger' : 'bg-success'}">
@@ -341,8 +403,9 @@ function deleteUnit(unitId) {
     }
 }
 
-// Helper function to format dates
+// Format date
 function formatDate(dateString) {
+    if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR');
 }
@@ -350,12 +413,5 @@ function formatDate(dateString) {
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
     checkAdminAccess();
-    
-    // Check if we need to show units section
-    const selectedGalleryId = localStorage.getItem('selectedGalleryId');
-    if (selectedGalleryId) {
-        showGalleryUnits(parseInt(selectedGalleryId));
-    } else {
-        displayGalleries();
-    }
+    initializeFirebase();
 }); 
