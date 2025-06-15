@@ -79,16 +79,9 @@ async function loadUnitDetails() {
             technicalDetails.innerHTML = `<pre class="technical-details">${unit.technicalDetails}</pre>`;
         }
 
-        // Display technical documents with debug logging
+        // Display technical documents
         const technicalDocuments = document.getElementById('technicalDocuments');
         if (unit.documents && unit.documents.length > 0) {
-            console.log('Loading documents:', unit.documents.map(doc => ({
-                name: doc.name,
-                size: doc.size,
-                type: doc.type,
-                dataPrefix: doc.data.substring(0, 50) + '...' // Log first 50 chars for debugging
-            })));
-            
             technicalDocuments.innerHTML = unit.documents.map(doc => `
                 <div class="document-item d-flex align-items-center mb-2">
                     <i class="bi bi-file-pdf text-danger me-2"></i>
@@ -110,9 +103,13 @@ async function loadUnitDetails() {
             `).join('');
         }
 
-        // Show edit button for admin
+        // Display maintenance history
+        displayMaintenanceHistory(unit.maintenanceHistory);
+
+        // Show edit button and maintenance button for admin
         if (isAdmin()) {
             document.querySelector('.admin-only').style.display = 'block';
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
             
             // Fill edit form
             document.getElementById('editUnitName').value = unit.name;
@@ -140,31 +137,99 @@ function toggleEditMode() {
 }
 
 // Handle image upload
-function uploadImages() {
+async function uploadImages() {
     const fileInput = document.getElementById('imageUpload');
     const files = fileInput.files;
     
     if (files.length === 0) return;
 
-    const imagePromises = Array.from(files).map(file => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-    });
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/png'];
+    const invalidFiles = Array.from(files).filter(file => !validTypes.includes(file.type));
+    if (invalidFiles.length > 0) {
+        alert('Sadece JPG ve PNG formatında görseller kabul edilmektedir.');
+        return;
+    }
 
-    Promise.all(imagePromises).then(images => {
-        const preview = document.getElementById('imagePreview');
-        preview.innerHTML = images.map(image => `
+    const preview = document.getElementById('imagePreview');
+    preview.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><div>Yükleniyor...</div></div>';
+
+    try {
+        const imageUrls = [];
+
+        for (const file of files) {
+            try {
+                // Create an image element for resizing
+                const img = document.createElement('img');
+                const reader = new FileReader();
+                
+                // Convert file to data URL
+                await new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                
+                // Load image for resizing
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = reader.result;
+                });
+
+                // Create canvas for resizing
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Calculate new dimensions (max 800px width/height)
+                let width = img.width;
+                let height = img.height;
+                const maxSize = 800;
+                
+                if (width > height && width > maxSize) {
+                    height *= maxSize / width;
+                    width = maxSize;
+                } else if (height > maxSize) {
+                    width *= maxSize / height;
+                    height = maxSize;
+                }
+                
+                // Set canvas size and draw resized image
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Convert to JPEG with reduced quality
+                const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                
+                // Add to image URLs array
+                imageUrls.push(resizedDataUrl);
+                
+                console.log('Görsel başarıyla yüklendi ve yeniden boyutlandırıldı');
+            } catch (uploadError) {
+                console.error('Görsel yükleme hatası:', uploadError);
+                throw uploadError;
+            }
+        }
+
+        // Show preview
+        preview.innerHTML = imageUrls.map(url => `
             <div class="unit-image mb-3">
-                <img src="${image}" class="img-fluid" alt="Preview">
+                <img src="${url}" class="img-fluid" alt="Preview">
             </div>
         `).join('');
 
-        // Store images temporarily
-        preview.dataset.images = JSON.stringify(images);
-    });
+        // Store image URLs temporarily
+        preview.dataset.images = JSON.stringify(imageUrls);
+
+        return imageUrls;
+
+    } catch (error) {
+        console.error('Görsel yüklenirken hata:', error);
+        alert('Görseller yüklenirken bir hata oluştu: ' + error.message);
+        preview.innerHTML = '';
+        throw error;
+    }
 }
 
 // Handle document upload
@@ -284,7 +349,9 @@ async function saveUnitDetails() {
         // Update images if new ones were uploaded
         const preview = document.getElementById('imagePreview');
         if (preview.dataset.images) {
-            units[unitIndex].images = JSON.parse(preview.dataset.images);
+            const newImages = JSON.parse(preview.dataset.images);
+            units[unitIndex].images = units[unitIndex].images || [];
+            units[unitIndex].images = [...units[unitIndex].images, ...newImages];
         }
 
         // Update documents if new ones were uploaded
@@ -318,13 +385,122 @@ function formatDate(dateString) {
     return date.toLocaleDateString('tr-TR');
 }
 
-// Sayfa yüklendiğinde çalışacak
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Sayfayı başlat
-        await loadUnitDetails();
-    } catch (error) {
-        console.error('Sayfa başlatılırken hata:', error);
-        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
+// Show maintenance modal
+function showMaintenanceModal() {
+    // Set default date to today
+    document.getElementById('maintenanceDate').value = new Date().toISOString().split('T')[0];
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('maintenanceModal'));
+    modal.show();
+}
+
+// Save maintenance record
+async function saveMaintenance() {
+    const maintenanceData = {
+        date: document.getElementById('maintenanceDate').value,
+        type: document.getElementById('maintenanceType').value,
+        details: document.getElementById('maintenanceDetails').value,
+        status: document.getElementById('maintenanceStatus').value,
+        technician: document.getElementById('technician').value,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (!maintenanceData.date || !maintenanceData.type || !maintenanceData.details || !maintenanceData.status || !maintenanceData.technician) {
+        alert('Lütfen tüm alanları doldurun!');
+        return;
     }
-}); 
+
+    try {
+        const galleryId = localStorage.getItem('selectedGalleryId');
+        const unitId = localStorage.getItem('selectedUnitId');
+        const docRef = await db.collection('galleries').doc(galleryId).get();
+        
+        if (!docRef.exists) {
+            alert('Galeri bulunamadı!');
+            return;
+        }
+
+        const gallery = docRef.data();
+        const units = gallery.units || [];
+        const unitIndex = units.findIndex(u => String(u.id) === unitId);
+
+        if (unitIndex === -1) {
+            alert('Ünite bulunamadı!');
+            return;
+        }
+
+        // Add maintenance record
+        if (!units[unitIndex].maintenanceHistory) {
+            units[unitIndex].maintenanceHistory = [];
+        }
+        units[unitIndex].maintenanceHistory.push(maintenanceData);
+
+        // Update last maintenance date
+        units[unitIndex].lastMaintenance = maintenanceData.date;
+
+        // Update unit status if maintenance is completed
+        if (maintenanceData.status === 'Tamamlandı') {
+            units[unitIndex].status = 'Çalışıyor';
+        }
+
+        // Update Firestore
+        await db.collection('galleries').doc(galleryId).update({
+            units: units,
+            faultyUnits: units.filter(u => u.status === 'Arızalı').length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Close modal and reload details
+        const modal = bootstrap.Modal.getInstance(document.getElementById('maintenanceModal'));
+        modal.hide();
+        document.getElementById('maintenanceForm').reset();
+        
+        // Reload unit details
+        await loadUnitDetails();
+
+    } catch (error) {
+        console.error('Bakım kaydı eklenirken hata:', error);
+        alert('Bakım kaydı eklenirken bir hata oluştu.');
+    }
+}
+
+// Display maintenance history
+function displayMaintenanceHistory(maintenanceHistory) {
+    const tableBody = document.getElementById('maintenanceTable');
+    
+    if (!maintenanceHistory || maintenanceHistory.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted">
+                    Henüz bakım kaydı bulunmamaktadır.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // Sort maintenance records by date (newest first)
+    const sortedHistory = [...maintenanceHistory].sort((a, b) => 
+        new Date(b.date) - new Date(a.date)
+    );
+
+    tableBody.innerHTML = sortedHistory.map(record => `
+        <tr class="${record.status === 'Devam Ediyor' ? 'table-warning' : 
+                   record.status === 'Beklemede' ? 'table-info' : ''}">
+            <td>${formatDate(record.date)}</td>
+            <td>${record.type}</td>
+            <td>${record.details}</td>
+            <td>
+                <span class="badge ${
+                    record.status === 'Tamamlandı' ? 'bg-success' :
+                    record.status === 'Devam Ediyor' ? 'bg-warning' :
+                    'bg-info'
+                }">
+                    ${record.status}
+                </span>
+            </td>
+            <td>${record.technician}</td>
+        </tr>
+    `).join('');
+} 

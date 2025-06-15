@@ -15,6 +15,10 @@ try {
   
   // Get Firestore instance and make it globally available
   window.db = firebase.firestore();
+  
+  // Initialize Storage
+  window.storage = firebase.storage();
+
 } catch (error) {
   console.error('Firebase başlatma hatası:', error);
   throw error;
