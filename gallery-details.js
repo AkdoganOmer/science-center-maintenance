@@ -11,9 +11,11 @@ function initializeFirebase() {
             loadGalleryDetails();
         } else {
             console.error('Firebase yüklenemedi');
+            alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
         }
     } catch (error) {
         console.error('Firebase başlatılırken hata:', error);
+        alert('Firebase başlatılırken bir hata oluştu: ' + error.message);
     }
 }
 
@@ -60,11 +62,10 @@ async function loadGalleryDetails() {
             row.style.cursor = 'pointer';
             row.onclick = () => showUnitDetails(unit.id);
             row.innerHTML = `
-                <td>${unit.id}</td>
                 <td>${unit.name}</td>
                 <td>
                     <span class="badge ${unit.status === 'Arızalı' ? 'bg-danger' : 'bg-success'}">
-                        ${unit.status}
+                        ${unit.status || 'Çalışıyor'}
                     </span>
                 </td>
                 <td>${formatDate(unit.lastMaintenance)}</td>
@@ -79,7 +80,7 @@ async function loadGalleryDetails() {
 
 // Function to show unit details
 function showUnitDetails(unitId) {
-    localStorage.setItem('selectedUnitId', unitId);
+    localStorage.setItem('selectedUnitId', String(unitId));
     window.location.href = 'unit-details.html';
 }
 

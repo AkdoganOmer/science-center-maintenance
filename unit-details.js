@@ -45,7 +45,7 @@ function findUnit(unitId) {
 // Load unit details
 async function loadUnitDetails() {
     const galleryId = localStorage.getItem('selectedGalleryId');
-    const unitId = parseInt(localStorage.getItem('selectedUnitId'));
+    const unitId = localStorage.getItem('selectedUnitId');
     
     if (!galleryId || !unitId) {
         window.location.href = 'index.html';
@@ -62,7 +62,7 @@ async function loadUnitDetails() {
         }
 
         const gallery = docRef.data();
-        const unit = gallery.units.find(u => u.id === unitId);
+        const unit = gallery.units.find(u => String(u.id) === unitId);
 
         if (!unit) {
             alert('Ünite bulunamadı!');
