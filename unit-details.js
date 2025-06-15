@@ -1,11 +1,13 @@
-// Firebase referansı
+// Firebase referansları
 let db;
+let storage;
 
 function initializeFirebase() {
     try {
         // Firebase'in başlatıldığından emin ol
-        if (firebase && firebase.firestore) {
+        if (firebase && firebase.firestore && firebase.storage) {
             db = firebase.firestore();
+            storage = firebase.storage();
             console.log('Firebase başarıyla başlatıldı');
             // Sayfayı başlat
             loadUnitDetails();
@@ -96,7 +98,7 @@ async function loadUnitDetails() {
             technicalDocuments.innerHTML = unit.documents.map(doc => `
                 <div class="document-item d-flex align-items-center mb-2">
                     <i class="bi bi-file-pdf text-danger me-2"></i>
-                    <a href="${doc.data}" target="_blank" class="text-decoration-none">
+                    <a href="${doc.url}" target="_blank" class="text-decoration-none">
                         ${doc.name}
                     </a>
                     <small class="text-muted ms-2">(${formatFileSize(doc.size)})</small>
@@ -172,7 +174,7 @@ function uploadImages() {
 }
 
 // Handle document upload
-function uploadDocuments() {
+async function uploadDocuments() {
     const fileInput = document.getElementById('documentUpload');
     const files = Array.from(fileInput.files);
     
@@ -185,22 +187,30 @@ function uploadDocuments() {
         return;
     }
 
-    const documentPromises = files.map(file => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                resolve({
-                    name: file.name,
-                    data: e.target.result,
-                    size: file.size,
-                    type: file.type
-                });
+    try {
+        const uploadPromises = files.map(async file => {
+            // Create a storage reference
+            const storageRef = storage.ref();
+            const fileRef = storageRef.child(`documents/${Date.now()}_${file.name}`);
+            
+            // Upload file
+            await fileRef.put(file);
+            
+            // Get download URL
+            const downloadURL = await fileRef.getDownloadURL();
+            
+            return {
+                name: file.name,
+                url: downloadURL,
+                size: file.size,
+                type: file.type,
+                path: fileRef.fullPath
             };
-            reader.readAsDataURL(file);
         });
-    });
 
-    Promise.all(documentPromises).then(documents => {
+        const documents = await Promise.all(uploadPromises);
+
+        // Update UI
         const documentList = document.getElementById('documentList');
         documentList.innerHTML = documents.map(doc => `
             <div class="document-item d-flex align-items-center mb-2">
@@ -212,7 +222,12 @@ function uploadDocuments() {
 
         // Store documents temporarily
         documentList.dataset.documents = JSON.stringify(documents);
-    });
+
+        console.log('Dokümanlar başarıyla yüklendi:', documents);
+    } catch (error) {
+        console.error('Doküman yükleme hatası:', error);
+        alert('Dokümanlar yüklenirken bir hata oluştu: ' + error.message);
+    }
 }
 
 // Format file size
@@ -269,6 +284,19 @@ async function saveUnitDetails() {
         // Update documents if new ones were uploaded
         const documentList = document.getElementById('documentList');
         if (documentList.dataset.documents) {
+            // Delete old documents from storage if they exist
+            if (units[unitIndex].documents) {
+                for (const doc of units[unitIndex].documents) {
+                    if (doc.path) {
+                        try {
+                            await storage.ref(doc.path).delete();
+                        } catch (error) {
+                            console.error('Eski doküman silinirken hata:', error);
+                        }
+                    }
+                }
+            }
+            
             units[unitIndex].documents = JSON.parse(documentList.dataset.documents);
         }
 
