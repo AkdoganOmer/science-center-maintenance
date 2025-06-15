@@ -1,25 +1,13 @@
-// Firebase referansı
-let db;
-let storage;
-
-function initializeFirebase() {
+// Sayfa yüklendiğinde çalışacak
+document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Firebase'in başlatıldığından emin ol
-        if (firebase && firebase.firestore && firebase.storage) {
-            db = firebase.firestore();
-            storage = firebase.storage();
-            console.log('Firebase başarıyla başlatıldı');
-            // Sayfayı başlat
-            loadUnitDetails();
-        } else {
-            console.error('Firebase yüklenemedi');
-            alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
-        }
+        // Sayfayı başlat
+        await loadUnitDetails();
     } catch (error) {
-        console.error('Firebase başlatılırken hata:', error);
-        alert('Firebase başlatılırken bir hata oluştu: ' + error.message);
+        console.error('Sayfa başlatılırken hata:', error);
+        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
     }
-}
+});
 
 // Get galleries from localStorage
 function getGalleries() {
@@ -310,7 +298,7 @@ function formatDate(dateString) {
 // Sayfa yüklendiğinde çalışacak
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Sayfayı yükle
+        // Sayfayı başlat
         await loadUnitDetails();
     } catch (error) {
         console.error('Sayfa başlatılırken hata:', error);
