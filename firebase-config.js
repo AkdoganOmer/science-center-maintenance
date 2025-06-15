@@ -12,16 +12,13 @@ const firebaseConfig = {
 try {
   firebase.initializeApp(firebaseConfig);
   console.log('Firebase başarıyla başlatıldı');
+  
+  // Get Firestore instance and make it globally available
+  window.db = firebase.firestore();
 } catch (error) {
   console.error('Firebase başlatma hatası:', error);
   throw error;
 }
-
-// Get Firestore instance
-const db = firebase.firestore();
-
-// Export the db instance
-window.db = db;
 
 
 
