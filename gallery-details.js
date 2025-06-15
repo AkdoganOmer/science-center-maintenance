@@ -1,24 +1,3 @@
-// Firebase yüklenene kadar bekle
-let db;
-
-function initializeFirebase() {
-    try {
-        // Firebase'in başlatıldığından emin ol
-        if (firebase && firebase.firestore) {
-            db = firebase.firestore();
-            console.log('Firebase başarıyla başlatıldı');
-            // Sayfayı başlat
-            loadGalleryDetails();
-        } else {
-            console.error('Firebase yüklenemedi');
-            alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
-        }
-    } catch (error) {
-        console.error('Firebase başlatılırken hata:', error);
-        alert('Firebase başlatılırken bir hata oluştu: ' + error.message);
-    }
-}
-
 // Sayfa yüklendiğinde çalışacak
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -100,6 +79,4 @@ function formatDate(dateString) {
     if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR');
-}
-
- 
+} 
