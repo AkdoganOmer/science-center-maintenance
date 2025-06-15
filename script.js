@@ -1,23 +1,15 @@
-// Firebase yüklenene kadar bekle
-let db;
-
-function initializeFirebase() {
+// Sayfayı başlat
+document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Firebase'in başlatıldığından emin ol
-        if (firebase && firebase.firestore) {
-            db = firebase.firestore();
-            console.log('Firebase başarıyla başlatıldı');
-            // LocalStorage'dan Firestore'a veri aktarımını kontrol et
-            migrateGalleriesToFirestore();
-            // Sayfayı başlat
-            createGalleryCards();
-        } else {
-            console.error('Firebase yüklenemedi');
-        }
+        // LocalStorage'dan Firestore'a veri aktarımını kontrol et
+        await migrateGalleriesToFirestore();
+        // Sayfayı başlat
+        await createGalleryCards();
     } catch (error) {
-        console.error('Firebase başlatılırken hata:', error);
+        console.error('Sayfa başlatılırken hata:', error);
+        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
     }
-}
+});
 
 // LocalStorage'dan galerileri al
 function getLocalGalleries() {
@@ -79,10 +71,6 @@ async function getGalleries() {
 
 // Galeri ekle
 async function addGallery(gallery) {
-    if (!db) {
-        throw new Error('Firebase henüz başlatılmadı');
-    }
-
     try {
         const docRef = await db.collection('galleries').add({
             name: gallery.name,
@@ -157,10 +145,6 @@ async function showGalleryDetails(galleryId) {
 
 // Test için galeri ekle
 async function testAddGallery() {
-    if (!db) {
-        console.error('Firebase henüz başlatılmadı');
-        return;
-    }
     try {
         const galleryId = await addGallery({
             name: "Test Galerisi",
