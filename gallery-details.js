@@ -19,6 +19,17 @@ function initializeFirebase() {
     }
 }
 
+// Sayfa yüklendiğinde çalışacak
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Sayfayı başlat
+        await loadGalleryDetails();
+    } catch (error) {
+        console.error('Sayfa başlatılırken hata:', error);
+        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
+    }
+});
+
 async function loadGalleryDetails() {
     const galleryId = localStorage.getItem('selectedGalleryId');
     if (!galleryId) {
@@ -91,8 +102,4 @@ function formatDate(dateString) {
     return date.toLocaleDateString('tr-TR');
 }
 
-// Initialize the page
-document.addEventListener('DOMContentLoaded', () => {
-    // Firebase'in yüklenmesi için kısa bir süre bekle
-    setTimeout(initializeFirebase, 500);
-}); 
+ 
