@@ -1,3 +1,24 @@
+// Firebase referansı
+let db;
+
+function initializeFirebase() {
+    try {
+        // Firebase'in başlatıldığından emin ol
+        if (firebase && firebase.firestore) {
+            db = firebase.firestore();
+            console.log('Firebase başarıyla başlatıldı');
+            // Sayfayı başlat
+            loadUnitDetails();
+        } else {
+            console.error('Firebase yüklenemedi');
+            alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
+        }
+    } catch (error) {
+        console.error('Firebase başlatılırken hata:', error);
+        alert('Firebase başlatılırken bir hata oluştu: ' + error.message);
+    }
+}
+
 // Get galleries from localStorage
 function getGalleries() {
     const galleries = localStorage.getItem('galleries');
@@ -22,60 +43,75 @@ function findUnit(unitId) {
 }
 
 // Load unit details
-function loadUnitDetails() {
+async function loadUnitDetails() {
+    const galleryId = localStorage.getItem('selectedGalleryId');
     const unitId = parseInt(localStorage.getItem('selectedUnitId'));
-    if (!unitId) {
+    
+    if (!galleryId || !unitId) {
         window.location.href = 'index.html';
         return;
     }
 
-    const result = findUnit(unitId);
-    if (!result) {
-        alert('Ünite bulunamadı!');
-        window.location.href = 'index.html';
-        return;
-    }
-
-    const { unit, gallery } = result;
-
-    // Update page title
-    document.getElementById('unitTitle').textContent = unit.name;
-
-    // Fill unit information
-    document.getElementById('unitId').textContent = unit.id;
-    document.getElementById('unitName').textContent = unit.name;
-    document.getElementById('galleryName').textContent = gallery.name;
-    document.getElementById('unitStatus').innerHTML = `
-        <span class="badge ${unit.status === 'Arızalı' ? 'bg-danger' : 'bg-success'}">
-            ${unit.status}
-        </span>
-    `;
-    document.getElementById('lastMaintenance').textContent = formatDate(unit.lastMaintenance);
-
-    // Fill technical details
-    const technicalDetails = document.getElementById('technicalDetails');
-    if (unit.technicalDetails) {
-        technicalDetails.innerHTML = `<pre class="technical-details">${unit.technicalDetails}</pre>`;
-    }
-
-    // Display images
-    const unitImages = document.getElementById('unitImages');
-    if (unit.images && unit.images.length > 0) {
-        unitImages.innerHTML = unit.images.map(image => `
-            <div class="unit-image mb-3">
-                <img src="${image}" class="img-fluid" alt="${unit.name}">
-            </div>
-        `).join('');
-    }
-
-    // Show edit button for admin
-    if (isAdmin()) {
-        document.querySelector('.admin-only').style.display = 'block';
+    try {
+        const docRef = await db.collection('galleries').doc(galleryId).get();
         
-        // Fill edit form
-        document.getElementById('editUnitName').value = unit.name;
-        document.getElementById('editUnitStatus').value = unit.status;
-        document.getElementById('editTechnicalDetails').value = unit.technicalDetails || '';
+        if (!docRef.exists) {
+            alert('Galeri bulunamadı!');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        const gallery = docRef.data();
+        const unit = gallery.units.find(u => u.id === unitId);
+
+        if (!unit) {
+            alert('Ünite bulunamadı!');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        // Update page title
+        document.getElementById('unitTitle').textContent = unit.name;
+
+        // Fill unit information
+        document.getElementById('unitId').textContent = unit.id;
+        document.getElementById('unitName').textContent = unit.name;
+        document.getElementById('galleryName').textContent = gallery.name;
+        document.getElementById('unitStatus').innerHTML = `
+            <span class="badge ${unit.status === 'Arızalı' ? 'bg-danger' : 'bg-success'}">
+                ${unit.status || 'Çalışıyor'}
+            </span>
+        `;
+        document.getElementById('lastMaintenance').textContent = formatDate(unit.lastMaintenance);
+
+        // Fill technical details
+        const technicalDetails = document.getElementById('technicalDetails');
+        if (unit.technicalDetails) {
+            technicalDetails.innerHTML = `<pre class="technical-details">${unit.technicalDetails}</pre>`;
+        }
+
+        // Display images
+        const unitImages = document.getElementById('unitImages');
+        if (unit.images && unit.images.length > 0) {
+            unitImages.innerHTML = unit.images.map(image => `
+                <div class="unit-image mb-3">
+                    <img src="${image}" class="img-fluid" alt="${unit.name}">
+                </div>
+            `).join('');
+        }
+
+        // Show edit button for admin
+        if (isAdmin()) {
+            document.querySelector('.admin-only').style.display = 'block';
+            
+            // Fill edit form
+            document.getElementById('editUnitName').value = unit.name;
+            document.getElementById('editUnitStatus').value = unit.status || 'Çalışıyor';
+            document.getElementById('editTechnicalDetails').value = unit.technicalDetails || '';
+        }
+    } catch (error) {
+        console.error('Ünite detayları yüklenirken hata:', error);
+        alert('Ünite detayları yüklenirken bir hata oluştu.');
     }
 }
 
@@ -122,54 +158,74 @@ function uploadImages() {
 }
 
 // Save unit details
-function saveUnitDetails() {
+async function saveUnitDetails() {
+    const galleryId = localStorage.getItem('selectedGalleryId');
     const unitId = parseInt(localStorage.getItem('selectedUnitId'));
-    const galleries = getGalleries();
-    
-    // Find unit and gallery
-    let targetGallery, targetUnit;
-    for (const gallery of galleries) {
-        const unit = gallery.units.find(u => u.id === unitId);
-        if (unit) {
-            targetGallery = gallery;
-            targetUnit = unit;
-            break;
-        }
-    }
 
-    if (!targetUnit || !targetGallery) {
-        alert('Ünite bulunamadı!');
+    if (!galleryId || !unitId) {
+        alert('Galeri veya ünite bilgisi bulunamadı!');
         return;
     }
 
-    // Update unit details
-    targetUnit.name = document.getElementById('editUnitName').value;
-    targetUnit.status = document.getElementById('editUnitStatus').value;
-    targetUnit.technicalDetails = document.getElementById('editTechnicalDetails').value;
-    targetUnit.lastMaintenance = new Date().toISOString().split('T')[0];
+    try {
+        const docRef = await db.collection('galleries').doc(galleryId).get();
+        
+        if (!docRef.exists) {
+            alert('Galeri bulunamadı!');
+            return;
+        }
 
-    // Update images if new ones were uploaded
-    const preview = document.getElementById('imagePreview');
-    if (preview.dataset.images) {
-        targetUnit.images = JSON.parse(preview.dataset.images);
+        const gallery = docRef.data();
+        const units = gallery.units || [];
+        const unitIndex = units.findIndex(u => u.id === unitId);
+
+        if (unitIndex === -1) {
+            alert('Ünite bulunamadı!');
+            return;
+        }
+
+        // Update unit details
+        units[unitIndex] = {
+            ...units[unitIndex],
+            name: document.getElementById('editUnitName').value,
+            status: document.getElementById('editUnitStatus').value,
+            technicalDetails: document.getElementById('editTechnicalDetails').value,
+            lastMaintenance: new Date().toISOString().split('T')[0]
+        };
+
+        // Update images if new ones were uploaded
+        const preview = document.getElementById('imagePreview');
+        if (preview.dataset.images) {
+            units[unitIndex].images = JSON.parse(preview.dataset.images);
+        }
+
+        // Update Firestore
+        await db.collection('galleries').doc(galleryId).update({
+            units: units,
+            faultyUnits: units.filter(u => u.status === 'Arızalı').length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Switch back to view mode and reload details
+        toggleEditMode();
+        loadUnitDetails();
+
+        console.log('Ünite başarıyla güncellendi');
+    } catch (error) {
+        console.error('Ünite güncellenirken hata:', error);
+        alert('Ünite güncellenirken bir hata oluştu');
     }
-
-    // Update gallery stats
-    targetGallery.faultyUnits = targetGallery.units.filter(u => u.status === 'Arızalı').length;
-
-    // Save changes
-    saveGalleries(galleries);
-
-    // Switch back to view mode and reload details
-    toggleEditMode();
-    loadUnitDetails();
 }
 
 // Helper function to format dates
 function formatDate(dateString) {
+    if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR');
 }
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', loadUnitDetails); 
+document.addEventListener('DOMContentLoaded', () => {
+    // Firebase'in yüklenmesi için kısa bir süre bekle
+    setTimeout(initializeFirebase, 500);
+}); 
