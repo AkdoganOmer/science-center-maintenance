@@ -90,6 +90,20 @@ async function loadUnitDetails() {
             technicalDetails.innerHTML = `<pre class="technical-details">${unit.technicalDetails}</pre>`;
         }
 
+        // Display technical documents
+        const technicalDocuments = document.getElementById('technicalDocuments');
+        if (unit.documents && unit.documents.length > 0) {
+            technicalDocuments.innerHTML = unit.documents.map(doc => `
+                <div class="document-item d-flex align-items-center mb-2">
+                    <i class="bi bi-file-pdf text-danger me-2"></i>
+                    <a href="${doc.data}" target="_blank" class="text-decoration-none">
+                        ${doc.name}
+                    </a>
+                    <small class="text-muted ms-2">(${formatFileSize(doc.size)})</small>
+                </div>
+            `).join('');
+        }
+
         // Display images
         const unitImages = document.getElementById('unitImages');
         if (unit.images && unit.images.length > 0) {
@@ -157,6 +171,59 @@ function uploadImages() {
     });
 }
 
+// Handle document upload
+function uploadDocuments() {
+    const fileInput = document.getElementById('documentUpload');
+    const files = Array.from(fileInput.files);
+    
+    if (files.length === 0) return;
+
+    // Validate file types
+    const invalidFiles = files.filter(file => file.type !== 'application/pdf');
+    if (invalidFiles.length > 0) {
+        alert('Sadece PDF formatında dokümanlar kabul edilmektedir.');
+        return;
+    }
+
+    const documentPromises = files.map(file => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                resolve({
+                    name: file.name,
+                    data: e.target.result,
+                    size: file.size,
+                    type: file.type
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    Promise.all(documentPromises).then(documents => {
+        const documentList = document.getElementById('documentList');
+        documentList.innerHTML = documents.map(doc => `
+            <div class="document-item d-flex align-items-center mb-2">
+                <i class="bi bi-file-pdf text-danger me-2"></i>
+                <span>${doc.name}</span>
+                <small class="text-muted ms-2">(${formatFileSize(doc.size)})</small>
+            </div>
+        `).join('');
+
+        // Store documents temporarily
+        documentList.dataset.documents = JSON.stringify(documents);
+    });
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 // Save unit details
 async function saveUnitDetails() {
     const galleryId = localStorage.getItem('selectedGalleryId');
@@ -197,6 +264,12 @@ async function saveUnitDetails() {
         const preview = document.getElementById('imagePreview');
         if (preview.dataset.images) {
             units[unitIndex].images = JSON.parse(preview.dataset.images);
+        }
+
+        // Update documents if new ones were uploaded
+        const documentList = document.getElementById('documentList');
+        if (documentList.dataset.documents) {
+            units[unitIndex].documents = JSON.parse(documentList.dataset.documents);
         }
 
         // Update Firestore
