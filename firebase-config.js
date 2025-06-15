@@ -9,7 +9,13 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+try {
+  firebase.initializeApp(firebaseConfig);
+  console.log('Firebase başarıyla başlatıldı');
+} catch (error) {
+  console.error('Firebase başlatma hatası:', error);
+  throw error;
+}
 
 // Get Firestore instance
 const db = firebase.firestore();
