@@ -177,8 +177,6 @@ async function testAddGallery() {
 // Sayfayı başlat
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Firebase'i başlat
-        await initFirebase();
         // LocalStorage'dan Firestore'a veri aktarımını kontrol et
         await migrateGalleriesToFirestore();
         // Sayfayı başlat

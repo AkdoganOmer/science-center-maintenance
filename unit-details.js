@@ -310,8 +310,6 @@ function formatDate(dateString) {
 // Sayfa yüklendiğinde çalışacak
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Firebase'i başlat
-        await initFirebase();
         // Sayfayı yükle
         await loadUnitDetails();
     } catch (error) {
