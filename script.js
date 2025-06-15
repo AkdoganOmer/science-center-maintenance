@@ -60,14 +60,9 @@ async function migrateGalleriesToFirestore() {
 
 // Galerileri Firestore'dan al
 async function getGalleries() {
-    if (!db) {
-        console.error('Firebase henüz başlatılmadı');
-        return [];
-    }
-
-    const galleries = [];
     try {
         const snapshot = await db.collection('galleries').get();
+        const galleries = [];
         snapshot.forEach(doc => {
             galleries.push({
                 id: doc.id,
@@ -75,10 +70,11 @@ async function getGalleries() {
             });
         });
         console.log('Galeriler başarıyla yüklendi:', galleries);
+        return galleries;
     } catch (error) {
         console.error('Galeriler yüklenirken hata:', error);
+        throw error;
     }
-    return galleries;
 }
 
 // Galeri ekle
@@ -179,7 +175,16 @@ async function testAddGallery() {
 }
 
 // Sayfayı başlat
-document.addEventListener('DOMContentLoaded', () => {
-    // Firebase'in yüklenmesi için kısa bir süre bekle
-    setTimeout(initializeFirebase, 500);
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Firebase'i başlat
+        await initFirebase();
+        // LocalStorage'dan Firestore'a veri aktarımını kontrol et
+        await migrateGalleriesToFirestore();
+        // Sayfayı başlat
+        await createGalleryCards();
+    } catch (error) {
+        console.error('Sayfa başlatılırken hata:', error);
+        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
+    }
 });

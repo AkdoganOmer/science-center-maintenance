@@ -307,18 +307,15 @@ function formatDate(dateString) {
     return date.toLocaleDateString('tr-TR');
 }
 
-// Initialize page
+// Sayfa yüklendiğinde çalışacak
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         // Firebase'i başlat
         await initFirebase();
-        db = firebase.firestore();
-        console.log('Firebase başarıyla başlatıldı');
-        
         // Sayfayı yükle
         await loadUnitDetails();
     } catch (error) {
-        console.error('Firebase başlatma hatası:', error);
-        alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
+        console.error('Sayfa başlatılırken hata:', error);
+        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
     }
 }); 
