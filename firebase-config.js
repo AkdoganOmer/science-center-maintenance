@@ -9,12 +9,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-try {
+if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
-} catch (error) {
-  if (error.code !== 'app/duplicate-app') {
-    console.error('Firebase başlatma hatası:', error);
-  }
+} else {
+  firebase.app(); // Eğer zaten başlatılmışsa, mevcut instance'ı kullan
 }
 
 

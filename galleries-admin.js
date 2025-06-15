@@ -11,9 +11,11 @@ function initializeFirebase() {
             displayGalleries();
         } else {
             console.error('Firebase yüklenemedi');
+            alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
         }
     } catch (error) {
         console.error('Firebase başlatılırken hata:', error);
+        alert('Firebase başlatılırken bir hata oluştu: ' + error.message);
     }
 }
 
