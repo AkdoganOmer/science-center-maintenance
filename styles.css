@@ -115,4 +115,13 @@
 #documentList .document-item {
     border: 1px solid #dee2e6;
     margin-bottom: 0.5rem;
+}
+
+.pdf-viewer {
+    background-color: #f8f9fa;
+    overflow: hidden;
+}
+
+.pdf-viewer object {
+    border: none;
 } 

@@ -64,7 +64,6 @@ async function loadUnitDetails() {
         document.getElementById('unitTitle').textContent = unit.name;
 
         // Fill unit information
-        document.getElementById('unitId').textContent = unit.id;
         document.getElementById('unitName').textContent = unit.name;
         document.getElementById('galleryName').textContent = gallery.name;
         document.getElementById('unitStatus').innerHTML = `
@@ -80,13 +79,20 @@ async function loadUnitDetails() {
             technicalDetails.innerHTML = `<pre class="technical-details">${unit.technicalDetails}</pre>`;
         }
 
-        // Display technical documents
+        // Display technical documents with debug logging
         const technicalDocuments = document.getElementById('technicalDocuments');
         if (unit.documents && unit.documents.length > 0) {
+            console.log('Loading documents:', unit.documents.map(doc => ({
+                name: doc.name,
+                size: doc.size,
+                type: doc.type,
+                dataPrefix: doc.data.substring(0, 50) + '...' // Log first 50 chars for debugging
+            })));
+            
             technicalDocuments.innerHTML = unit.documents.map(doc => `
                 <div class="document-item d-flex align-items-center mb-2">
                     <i class="bi bi-file-pdf text-danger me-2"></i>
-                    <a href="${doc.data}" target="_blank" class="text-decoration-none" download="${doc.name}">
+                    <a href="${doc.data}" download="${doc.name}" class="text-decoration-none">
                         ${doc.name}
                     </a>
                     <small class="text-muted ms-2">(${formatFileSize(doc.size)})</small>
@@ -187,9 +193,18 @@ function uploadDocuments() {
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
+                // Ensure we're creating a proper data URL
+                const base64Data = e.target.result;
+                console.log('Uploaded PDF data:', {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    dataPrefix: base64Data.substring(0, 50) + '...' // Log first 50 chars for debugging
+                });
+                
                 resolve({
                     name: file.name,
-                    data: e.target.result,
+                    data: base64Data,
                     size: file.size,
                     type: file.type
                 });
@@ -210,6 +225,14 @@ function uploadDocuments() {
 
         // Store documents temporarily
         documentList.dataset.documents = JSON.stringify(documents);
+        
+        // Log stored documents for debugging
+        console.log('Stored documents:', JSON.parse(documentList.dataset.documents).map(doc => ({
+            name: doc.name,
+            size: doc.size,
+            type: doc.type,
+            dataPrefix: doc.data.substring(0, 50) + '...' // Log first 50 chars for debugging
+        })));
     });
 }
 
