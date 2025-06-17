@@ -123,6 +123,40 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Bakım Geçmişi -->
+            <div class="row">
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Bakım Geçmişi</h5>
+                            <button class="btn btn-sm btn-primary admin-only" style="display: none;" onclick="showMaintenanceModal()">
+                                <i class="bi bi-plus-circle"></i> Yeni Bakım Ekle
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="maintenanceHistory">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Tarih</th>
+                                                <th>Bakım Türü</th>
+                                                <th>Yapılan İşlemler</th>
+                                                <th>Durum</th>
+                                                <th>Teknisyen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="maintenanceTable">
+                                            <!-- Bakım kayıtları buraya dinamik olarak eklenecek -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Edit Mode (Admin Only) -->
@@ -185,6 +219,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     
     <!-- Firebase Configuration -->
     <script src="firebase-config.js"></script>
@@ -194,5 +229,55 @@
     
     <!-- Custom JS -->
     <script defer src="unit-details.js"></script>
+
+    <!-- Bakım Ekleme Modal -->
+    <div class="modal fade" id="maintenanceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yeni Bakım Kaydı Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="maintenanceForm">
+                        <div class="mb-3">
+                            <label for="maintenanceDate" class="form-label">Bakım Tarihi</label>
+                            <input type="date" class="form-control" id="maintenanceDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="maintenanceType" class="form-label">Bakım Türü</label>
+                            <select class="form-select" id="maintenanceType" required>
+                                <option value="">Seçiniz...</option>
+                                <option value="Periyodik">Periyodik Bakım</option>
+                                <option value="Arıza">Arıza Giderme</option>
+                                <option value="Kontrol">Rutin Kontrol</option>
+                                <option value="Güncelleme">Yazılım/Donanım Güncelleme</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="maintenanceDetails" class="form-label">Yapılan İşlemler</label>
+                            <textarea class="form-control" id="maintenanceDetails" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="maintenanceStatus" class="form-label">Durum</label>
+                            <select class="form-select" id="maintenanceStatus" required>
+                                <option value="Tamamlandı">Tamamlandı</option>
+                                <option value="Devam Ediyor">Devam Ediyor</option>
+                                <option value="Beklemede">Beklemede</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="technician" class="form-label">Teknisyen</label>
+                            <input type="text" class="form-control" id="technician" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-primary" onclick="saveMaintenance()">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 
