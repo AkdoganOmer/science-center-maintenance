@@ -9,21 +9,23 @@ const firebaseConfig = {
 };
 
 // Firebase'i başlat
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-} else {
-  firebase.app(); // Zaten başlatılmışsa, mevcut örneği kullan
+try {
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+    console.log('Firebase başarıyla başlatıldı');
+  } else {
+    firebase.app(); // Zaten başlatılmışsa, mevcut örneği kullan
+  }
+
+  // Servisleri başlat ve global olarak kullanılabilir yap
+  window.db = firebase.firestore();
+  window.auth = firebase.auth();
+  window.storage = firebase.storage();
+
+} catch (error) {
+  console.error('Firebase başlatma hatası:', error);
+  throw error;
 }
-
-// Servisleri başlat
-const db = firebase.firestore();
-const storage = firebase.storage();
-const auth = firebase.auth();
-
-// Global olarak kullanılabilir yap
-window.db = db;
-window.storage = storage;
-window.auth = auth;
 
 
 
