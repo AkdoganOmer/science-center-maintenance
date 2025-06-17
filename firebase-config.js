@@ -1,28 +1,29 @@
-// Your web app's Firebase configuration
+// Firebase yapılandırması
 const firebaseConfig = {
-  apiKey: "AIzaSyC-q-7B2IVQDRdNmUJ5K_UT-Tp2j1gZHIk",
-  authDomain: "sergi-bakim-onarim.firebaseapp.com",
-  projectId: "sergi-bakim-onarim",
-  storageBucket: "sergi-bakim-onarim.appspot.com",
-  messagingSenderId: "998277420747",
-  appId: "1:998277420747:web:663a465d9e198a2fadad4e"
+  apiKey: "AIzaSyBJ6H3FfBCkE8sxXXLF_Z8nFHxNz1K_5Zk",
+  authDomain: "science-center-maintenance.firebaseapp.com",
+  projectId: "science-center-maintenance",
+  storageBucket: "science-center-maintenance.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef1234567890"
 };
 
-// Initialize Firebase
-try {
+// Firebase'i başlat
+if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
-  console.log('Firebase başarıyla başlatıldı');
-  
-  // Get Firestore instance and make it globally available
-  window.db = firebase.firestore();
-  
-  // Initialize Storage
-  window.storage = firebase.storage();
-
-} catch (error) {
-  console.error('Firebase başlatma hatası:', error);
-  throw error;
+} else {
+  firebase.app(); // Zaten başlatılmışsa, mevcut örneği kullan
 }
+
+// Servisleri başlat
+const db = firebase.firestore();
+const storage = firebase.storage();
+const auth = firebase.auth();
+
+// Global olarak kullanılabilir yap
+window.db = db;
+window.storage = storage;
+window.auth = auth;
 
 
 
