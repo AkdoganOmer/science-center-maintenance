@@ -1,3 +1,24 @@
+// Firebase referansı
+let db;
+
+// Firebase'i başlat
+function initializeFirebase() {
+    try {
+        if (firebase && firebase.firestore) {
+            db = firebase.firestore();
+            console.log('Firebase başarıyla başlatıldı');
+            // Sayfayı başlat
+            displayGalleries();
+        } else {
+            console.error('Firebase yüklenemedi');
+            alert('Firebase bağlantısı kurulamadı. Lütfen sayfayı yenileyin.');
+        }
+    } catch (error) {
+        console.error('Firebase başlatılırken hata:', error);
+        alert('Firebase başlatılırken bir hata oluştu: ' + error.message);
+    }
+}
+
 // Check if user is admin
 function checkAdminAccess() {
     const username = localStorage.getItem('username');
@@ -7,44 +28,49 @@ function checkAdminAccess() {
     }
 }
 
-// Get galleries from localStorage or initialize
-function getGalleries() {
-    const galleries = localStorage.getItem('galleries');
-    return galleries ? JSON.parse(galleries) : [
-        { 
-            id: 1, 
-            name: "Uzay Galerisi", 
-            description: "Uzay ve astronomi sergisi", 
-            totalUnits: 3, 
-            faultyUnits: 1,
-            units: [
-                { id: 101, name: "Güneş Sistemi Modeli", description: "Güneş sistemi maket", status: "Çalışıyor", lastMaintenance: "2024-02-15" },
-                { id: 102, name: "Mars Yüzeyi", description: "Mars yüzeyi simülasyonu", status: "Arızalı", lastMaintenance: "2024-01-20" },
-                { id: 103, name: "Uzay İstasyonu", description: "ISS modeli", status: "Çalışıyor", lastMaintenance: "2024-02-10" }
-            ]
-        },
-        { 
-            id: 2, 
-            name: "Dünya ve Yaşam Galerisi", 
-            description: "Dünya ve yaşam formları sergisi", 
-            totalUnits: 2, 
-            faultyUnits: 0,
-            units: [
-                { id: 201, name: "Dinozor Fosilleri", description: "Dinozor fosil örnekleri", status: "Çalışıyor", lastMaintenance: "2024-02-12" },
-                { id: 202, name: "DNA Modeli", description: "İnteraktif DNA modeli", status: "Çalışıyor", lastMaintenance: "2024-02-01" }
-            ]
-        }
-    ];
+// Get galleries from Firestore
+async function getGalleries() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return [];
+    }
+
+    const galleries = [];
+    try {
+        const snapshot = await db.collection('galleries').get();
+        snapshot.forEach(doc => {
+            galleries.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        console.log('Galeriler başarıyla yüklendi:', galleries);
+        return galleries;
+    } catch (error) {
+        console.error('Galeriler alınırken hata:', error);
+        return [];
+    }
 }
 
-// Save galleries to localStorage
-function saveGalleries(galleries) {
-    localStorage.setItem('galleries', JSON.stringify(galleries));
+// Save gallery to Firestore
+async function saveGallery(gallery) {
+    try {
+        if (gallery.id) {
+            // Update existing gallery
+            await db.collection('galleries').doc(gallery.id.toString()).set(gallery);
+        } else {
+            // Add new gallery
+            await db.collection('galleries').add(gallery);
+        }
+    } catch (error) {
+        console.error('Galeri kaydedilirken hata:', error);
+        throw error;
+    }
 }
 
 // Display galleries in table
-function displayGalleries() {
-    const galleries = getGalleries();
+async function displayGalleries() {
+    const galleries = await getGalleries();
     const tableBody = document.getElementById('galleriesTable');
     tableBody.innerHTML = '';
 
@@ -59,15 +85,14 @@ function displayGalleries() {
         };
         
         row.innerHTML = `
-            <td>${gallery.id}</td>
             <td>${gallery.name}</td>
-            <td>${gallery.totalUnits}</td>
-            <td>${gallery.faultyUnits}</td>
+            <td>${gallery.totalUnits || 0}</td>
+            <td>${gallery.faultyUnits || 0}</td>
             <td class="action-buttons">
-                <button class="btn btn-sm btn-primary me-2" onclick="editGallery(${gallery.id})">
+                <button class="btn btn-sm btn-primary me-2" onclick="editGallery('${gallery.id}')">
                     <i class="bi bi-pencil"></i> Düzenle
                 </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteGallery(${gallery.id})">
+                <button class="btn btn-sm btn-danger" onclick="deleteGallery('${gallery.id}')">
                     <i class="bi bi-trash"></i> Sil
                 </button>
             </td>
@@ -77,7 +102,13 @@ function displayGalleries() {
 }
 
 // Add new gallery
-function addGallery() {
+async function addGallery() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        alert('Sistem hazır değil, lütfen sayfayı yenileyin');
+        return;
+    }
+
     const name = document.getElementById('galleryName').value;
     const description = document.getElementById('galleryDescription').value;
     
@@ -86,46 +117,62 @@ function addGallery() {
         return;
     }
 
-    const galleries = getGalleries();
-    const newId = galleries.length > 0 ? Math.max(...galleries.map(g => g.id)) + 1 : 1;
+    try {
+        const newGallery = {
+            name: name,
+            description: description,
+            totalUnits: 0,
+            faultyUnits: 0,
+            units: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
 
-    const newGallery = {
-        id: newId,
-        name: name,
-        description: description,
-        totalUnits: 0,
-        faultyUnits: 0,
-        units: []
-    };
+        const docRef = await db.collection('galleries').add(newGallery);
+        console.log('Yeni galeri eklendi. ID:', docRef.id);
+        await displayGalleries();
 
-    galleries.push(newGallery);
-    saveGalleries(galleries);
-    displayGalleries();
-
-    // Close modal and reset form
-    const modal = bootstrap.Modal.getInstance(document.getElementById('addGalleryModal'));
-    modal.hide();
-    document.getElementById('addGalleryForm').reset();
+        // Close modal and reset form
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addGalleryModal'));
+        modal.hide();
+        document.getElementById('addGalleryForm').reset();
+    } catch (error) {
+        console.error('Galeri eklenirken hata:', error);
+        alert('Galeri eklenirken bir hata oluştu: ' + error.message);
+    }
 }
 
 // Load gallery data for editing
-function editGallery(id) {
-    const galleries = getGalleries();
-    const gallery = galleries.find(g => g.id === id);
-    
-    if (gallery) {
-        document.getElementById('editGalleryId').value = gallery.id;
-        document.getElementById('editGalleryName').value = gallery.name;
-        document.getElementById('editGalleryDescription').value = gallery.description;
-        
-        const modal = new bootstrap.Modal(document.getElementById('editGalleryModal'));
-        modal.show();
+async function editGallery(id) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    try {
+        const doc = await db.collection('galleries').doc(id).get();
+        if (doc.exists) {
+            const gallery = { id: doc.id, ...doc.data() };
+            document.getElementById('editGalleryId').value = gallery.id;
+            document.getElementById('editGalleryName').value = gallery.name;
+            document.getElementById('editGalleryDescription').value = gallery.description || '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('editGalleryModal'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error('Galeri bilgileri alınırken hata:', error);
+        alert('Galeri bilgileri alınırken bir hata oluştu');
     }
 }
 
 // Update gallery
-function updateGallery() {
-    const id = parseInt(document.getElementById('editGalleryId').value);
+async function updateGallery() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    const id = document.getElementById('editGalleryId').value;
     const name = document.getElementById('editGalleryName').value;
     const description = document.getElementById('editGalleryDescription').value;
 
@@ -134,51 +181,69 @@ function updateGallery() {
         return;
     }
 
-    const galleries = getGalleries();
-    const index = galleries.findIndex(g => g.id === id);
-    
-    if (index !== -1) {
-        galleries[index] = {
-            ...galleries[index],
+    try {
+        const docRef = db.collection('galleries').doc(id);
+        await docRef.update({
             name: name,
-            description: description
-        };
+            description: description,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         
-        saveGalleries(galleries);
-        displayGalleries();
+        await displayGalleries();
 
         // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('editGalleryModal'));
         modal.hide();
+    } catch (error) {
+        console.error('Galeri güncellenirken hata:', error);
+        alert('Galeri güncellenirken bir hata oluştu');
     }
 }
 
 // Delete gallery
-function deleteGallery(id) {
+async function deleteGallery(id) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
     if (confirm('Bu galeriyi silmek istediğinizden emin misiniz?')) {
-        const galleries = getGalleries();
-        const filteredGalleries = galleries.filter(g => g.id !== id);
-        saveGalleries(filteredGalleries);
-        displayGalleries();
+        try {
+            await db.collection('galleries').doc(id).delete();
+            await displayGalleries();
+        } catch (error) {
+            console.error('Galeri silinirken hata:', error);
+            alert('Galeri silinirken bir hata oluştu');
+        }
     }
 }
 
 // Show gallery units
-function showGalleryUnits(galleryId) {
-    const galleries = getGalleries();
-    const gallery = galleries.find(g => g.id === galleryId);
-    
-    if (gallery) {
-        // Update UI
-        document.getElementById('gallerySection').style.display = 'none';
-        document.getElementById('unitsSection').style.display = 'block';
-        document.getElementById('selectedGalleryName').textContent = `${gallery.name} - Üniteler`;
-        
-        // Store selected gallery ID
-        localStorage.setItem('selectedGalleryId', galleryId);
-        
-        // Display units
-        displayUnits(gallery.units);
+async function showGalleryUnits(galleryId) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    try {
+        const doc = await db.collection('galleries').doc(galleryId).get();
+        if (doc.exists) {
+            const gallery = { id: doc.id, ...doc.data() };
+            
+            // Update UI
+            document.getElementById('gallerySection').style.display = 'none';
+            document.getElementById('unitsSection').style.display = 'block';
+            document.getElementById('selectedGalleryName').textContent = `${gallery.name} - Üniteler`;
+            
+            // Store selected gallery ID
+            localStorage.setItem('selectedGalleryId', galleryId);
+            
+            // Display units
+            displayUnits(gallery.units || []);
+        }
+    } catch (error) {
+        console.error('Galeri detayları alınırken hata:', error);
+        alert('Galeri detayları alınırken bir hata oluştu');
     }
 }
 
@@ -198,7 +263,6 @@ function displayUnits(units) {
         const row = document.createElement('tr');
         row.className = unit.status === 'Arızalı' ? 'table-danger' : '';
         row.innerHTML = `
-            <td>${unit.id}</td>
             <td>${unit.name}</td>
             <td>
                 <span class="badge ${unit.status === 'Arızalı' ? 'bg-danger' : 'bg-success'}">
@@ -220,7 +284,12 @@ function displayUnits(units) {
 }
 
 // Add new unit
-function addUnit() {
+async function addUnit() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
     const name = document.getElementById('unitName').value;
     const description = document.getElementById('unitDescription').value;
     
@@ -229,15 +298,21 @@ function addUnit() {
         return;
     }
 
-    const galleries = getGalleries();
-    const galleryId = parseInt(localStorage.getItem('selectedGalleryId'));
-    const galleryIndex = galleries.findIndex(g => g.id === galleryId);
-    
-    if (galleryIndex !== -1) {
-        const gallery = galleries[galleryIndex];
-        const newId = gallery.units.length > 0 ? 
-            Math.max(...gallery.units.map(u => u.id)) + 1 : 
-            (galleryId * 100 + 1);
+    try {
+        const galleryId = localStorage.getItem('selectedGalleryId');
+        const docRef = await db.collection('galleries').doc(galleryId).get();
+        
+        if (!docRef.exists) {
+            alert('Galeri bulunamadı!');
+            return;
+        }
+
+        const gallery = docRef.data();
+        const units = gallery.units || [];
+        
+        // Yeni ünite ID'si oluştur
+        const newId = units.length > 0 ? 
+            Math.max(...units.map(u => parseInt(u.id))) + 1 : 1;
 
         const newUnit = {
             id: newId,
@@ -247,42 +322,77 @@ function addUnit() {
             lastMaintenance: new Date().toISOString().split('T')[0]
         };
 
-        gallery.units.push(newUnit);
-        gallery.totalUnits = gallery.units.length;
-        gallery.faultyUnits = gallery.units.filter(u => u.status === 'Arızalı').length;
+        // Üniteyi ekle ve sayıları güncelle
+        units.push(newUnit);
+        const totalUnits = units.length;
+        const faultyUnits = units.filter(u => u.status === 'Arızalı').length;
 
-        saveGalleries(galleries);
-        displayUnits(gallery.units);
+        // Firestore'u güncelle
+        await db.collection('galleries').doc(galleryId).update({
+            units: units,
+            totalUnits: totalUnits,
+            faultyUnits: faultyUnits,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
 
-        // Close modal and reset form
+        // UI'ı güncelle
+        displayUnits(units);
+
+        // Modal'ı kapat ve formu temizle
         const modal = bootstrap.Modal.getInstance(document.getElementById('addUnitModal'));
         modal.hide();
         document.getElementById('addUnitForm').reset();
+
+        console.log('Yeni ünite başarıyla eklendi:', newUnit);
+    } catch (error) {
+        console.error('Ünite eklenirken hata:', error);
+        alert('Ünite eklenirken bir hata oluştu');
     }
 }
 
 // Edit unit
-function editUnit(unitId) {
-    const galleries = getGalleries();
-    const galleryId = parseInt(localStorage.getItem('selectedGalleryId'));
-    const gallery = galleries.find(g => g.id === galleryId);
-    
-    if (gallery) {
+async function editUnit(unitId) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
+    try {
+        const galleryId = localStorage.getItem('selectedGalleryId');
+        const docRef = await db.collection('galleries').doc(galleryId).get();
+        
+        if (!docRef.exists) {
+            alert('Galeri bulunamadı!');
+            return;
+        }
+
+        const gallery = docRef.data();
         const unit = gallery.units.find(u => u.id === unitId);
+        
         if (unit) {
             document.getElementById('editUnitId').value = unit.id;
             document.getElementById('editUnitName').value = unit.name;
-            document.getElementById('editUnitDescription').value = unit.description;
-            document.getElementById('editUnitStatus').value = unit.status;
+            document.getElementById('editUnitDescription').value = unit.description || '';
+            document.getElementById('editUnitStatus').value = unit.status || 'Çalışıyor';
             
             const modal = new bootstrap.Modal(document.getElementById('editUnitModal'));
             modal.show();
+        } else {
+            alert('Ünite bulunamadı!');
         }
+    } catch (error) {
+        console.error('Ünite bilgileri alınırken hata:', error);
+        alert('Ünite bilgileri alınırken bir hata oluştu');
     }
 }
 
 // Update unit
-function updateUnit() {
+async function updateUnit() {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
     const unitId = parseInt(document.getElementById('editUnitId').value);
     const name = document.getElementById('editUnitName').value;
     const description = document.getElementById('editUnitDescription').value;
@@ -293,56 +403,98 @@ function updateUnit() {
         return;
     }
 
-    const galleries = getGalleries();
-    const galleryId = parseInt(localStorage.getItem('selectedGalleryId'));
-    const galleryIndex = galleries.findIndex(g => g.id === galleryId);
-    
-    if (galleryIndex !== -1) {
-        const gallery = galleries[galleryIndex];
-        const unitIndex = gallery.units.findIndex(u => u.id === unitId);
+    try {
+        const galleryId = localStorage.getItem('selectedGalleryId');
+        const docRef = await db.collection('galleries').doc(galleryId).get();
+        
+        if (!docRef.exists) {
+            alert('Galeri bulunamadı!');
+            return;
+        }
+
+        const gallery = docRef.data();
+        const units = gallery.units || [];
+        const unitIndex = units.findIndex(u => u.id === unitId);
         
         if (unitIndex !== -1) {
-            gallery.units[unitIndex] = {
-                ...gallery.units[unitIndex],
+            // Üniteyi güncelle
+            units[unitIndex] = {
+                ...units[unitIndex],
                 name: name,
                 description: description,
                 status: status,
                 lastMaintenance: new Date().toISOString().split('T')[0]
             };
 
-            gallery.faultyUnits = gallery.units.filter(u => u.status === 'Arızalı').length;
+            // Arızalı ünite sayısını güncelle
+            const faultyUnits = units.filter(u => u.status === 'Arızalı').length;
             
-            saveGalleries(galleries);
-            displayUnits(gallery.units);
+            // Firestore'u güncelle
+            await db.collection('galleries').doc(galleryId).update({
+                units: units,
+                faultyUnits: faultyUnits,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
 
-            // Close modal
+            // UI'ı güncelle
+            displayUnits(units);
+
+            // Modal'ı kapat
             const modal = bootstrap.Modal.getInstance(document.getElementById('editUnitModal'));
             modal.hide();
+
+            console.log('Ünite başarıyla güncellendi:', units[unitIndex]);
+        } else {
+            alert('Ünite bulunamadı!');
         }
+    } catch (error) {
+        console.error('Ünite güncellenirken hata:', error);
+        alert('Ünite güncellenirken bir hata oluştu');
     }
 }
 
 // Delete unit
-function deleteUnit(unitId) {
+async function deleteUnit(unitId) {
+    if (!db) {
+        console.error('Firebase henüz başlatılmadı');
+        return;
+    }
+
     if (confirm('Bu üniteyi silmek istediğinizden emin misiniz?')) {
-        const galleries = getGalleries();
-        const galleryId = parseInt(localStorage.getItem('selectedGalleryId'));
-        const galleryIndex = galleries.findIndex(g => g.id === galleryId);
-        
-        if (galleryIndex !== -1) {
-            const gallery = galleries[galleryIndex];
-            gallery.units = gallery.units.filter(u => u.id !== unitId);
-            gallery.totalUnits = gallery.units.length;
-            gallery.faultyUnits = gallery.units.filter(u => u.status === 'Arızalı').length;
+        try {
+            const galleryId = localStorage.getItem('selectedGalleryId');
+            const docRef = await db.collection('galleries').doc(galleryId).get();
             
-            saveGalleries(galleries);
-            displayUnits(gallery.units);
+            if (!docRef.exists) {
+                alert('Galeri bulunamadı!');
+                return;
+            }
+
+            const gallery = docRef.data();
+            const units = gallery.units.filter(u => u.id !== unitId);
+            
+            // Firestore'u güncelle
+            await db.collection('galleries').doc(galleryId).update({
+                units: units,
+                totalUnits: units.length,
+                faultyUnits: units.filter(u => u.status === 'Arızalı').length,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // UI'ı güncelle
+            displayUnits(units);
+
+            console.log('Ünite başarıyla silindi');
+        } catch (error) {
+            console.error('Ünite silinirken hata:', error);
+            alert('Ünite silinirken bir hata oluştu');
         }
     }
 }
 
-// Helper function to format dates
+// Format date
 function formatDate(dateString) {
+    if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR');
 }
@@ -350,12 +502,5 @@ function formatDate(dateString) {
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
     checkAdminAccess();
-    
-    // Check if we need to show units section
-    const selectedGalleryId = localStorage.getItem('selectedGalleryId');
-    if (selectedGalleryId) {
-        showGalleryUnits(parseInt(selectedGalleryId));
-    } else {
-        displayGalleries();
-    }
+    initializeFirebase();
 }); 

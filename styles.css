@@ -83,4 +83,45 @@
     max-height: 300px;
     width: auto;
     margin: 0 auto;
+}
+
+/* Technical Documents styles */
+.document-item {
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.document-item:hover {
+    background-color: #f8f9fa;
+}
+
+.document-item i {
+    font-size: 1.2rem;
+}
+
+.document-item a {
+    color: #333;
+}
+
+.document-item a:hover {
+    color: #0d6efd;
+}
+
+.document-item small {
+    color: #6c757d;
+}
+
+#documentList .document-item {
+    border: 1px solid #dee2e6;
+    margin-bottom: 0.5rem;
+}
+
+.pdf-viewer {
+    background-color: #f8f9fa;
+    overflow: hidden;
+}
+
+.pdf-viewer object {
+    border: none;
 } 
