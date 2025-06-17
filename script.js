@@ -1,6 +1,16 @@
 // Sayfayı başlat
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Firebase'in yüklenmesini bekle
+        await new Promise((resolve) => {
+            const checkFirebase = setInterval(() => {
+                if (window.db) {
+                    clearInterval(checkFirebase);
+                    resolve();
+                }
+            }, 100);
+        });
+
         // LocalStorage'dan Firestore'a veri aktarımını kontrol et
         await migrateGalleriesToFirestore();
         // Sayfayı başlat
@@ -27,7 +37,7 @@ async function migrateGalleriesToFirestore() {
         }
 
         // Firestore'daki mevcut galerileri kontrol et
-        const snapshot = await db.collection('galleries').get();
+        const snapshot = await window.db.collection('galleries').get();
         if (!snapshot.empty) {
             console.log('Firestore\'da zaten galeriler var');
             return;
@@ -35,7 +45,7 @@ async function migrateGalleriesToFirestore() {
 
         // Galerileri Firestore'a ekle
         for (const gallery of localGalleries) {
-            await db.collection('galleries').doc(gallery.id.toString()).set({
+            await window.db.collection('galleries').doc(gallery.id.toString()).set({
                 name: gallery.name,
                 description: gallery.description,
                 totalUnits: gallery.totalUnits || 0,
@@ -53,7 +63,7 @@ async function migrateGalleriesToFirestore() {
 // Galerileri Firestore'dan al
 async function getGalleries() {
     try {
-        const snapshot = await db.collection('galleries').get();
+        const snapshot = await window.db.collection('galleries').get();
         const galleries = [];
         snapshot.forEach(doc => {
             galleries.push({
@@ -72,7 +82,7 @@ async function getGalleries() {
 // Galeri ekle
 async function addGallery(gallery) {
     try {
-        const docRef = await db.collection('galleries').add({
+        const docRef = await window.db.collection('galleries').add({
             name: gallery.name,
             totalUnits: gallery.totalUnits || 0,
             faultyUnits: gallery.faultyUnits || 0,
