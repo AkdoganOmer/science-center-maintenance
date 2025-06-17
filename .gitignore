@@ -1,3 +1,6 @@
+# Firebase configuration
+firebase-config.js
+
 # Dependencies
 node_modules/
 
@@ -5,9 +8,6 @@ node_modules/
 .env
 .env.local
 .env.*.local
-
-# Firebase config
-firebase-config.js
 
 # IDE files
 .vscode/

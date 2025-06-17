@@ -157,16 +157,3 @@ async function testAddGallery() {
         console.error('Test galerisi eklenirken hata:', error);
     }
 }
-
-// Sayfayı başlat
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // LocalStorage'dan Firestore'a veri aktarımını kontrol et
-        await migrateGalleriesToFirestore();
-        // Sayfayı başlat
-        await createGalleryCards();
-    } catch (error) {
-        console.error('Sayfa başlatılırken hata:', error);
-        alert('Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
-    }
-});
