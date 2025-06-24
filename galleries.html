@@ -162,6 +162,21 @@
                             <label for="unitDescription" class="form-label">Açıklama</label>
                             <textarea class="form-control" id="unitDescription" rows="3"></textarea>
                         </div>
+                        <div class="mb-3">
+                            <label for="unitStatus" class="form-label">Durum</label>
+                            <select class="form-select" id="unitStatus">
+                                <option value="Çalışıyor">Çalışıyor</option>
+                                <option value="Arızalı">Arızalı</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="faultyDetailsGroup" style="display: none;">
+                            <label for="faultyReason" class="form-label">Arıza Sebebi</label>
+                            <textarea class="form-control" id="faultyReason" rows="2" placeholder="Arızanın sebebini açıklayın"></textarea>
+                        </div>
+                        <div class="mb-3" id="maintenanceDetailsGroup" style="display: none;">
+                            <label for="maintenanceTasks" class="form-label">Yapılacak İşlemler</label>
+                            <textarea class="form-control" id="maintenanceTasks" rows="2" placeholder="Yapılması gereken işlemleri açıklayın"></textarea>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -197,6 +212,14 @@
                                 <option value="Çalışıyor">Çalışıyor</option>
                                 <option value="Arızalı">Arızalı</option>
                             </select>
+                        </div>
+                        <div class="mb-3" id="faultyDetailsGroup" style="display: none;">
+                            <label for="editFaultyReason" class="form-label">Arıza Sebebi</label>
+                            <textarea class="form-control" id="editFaultyReason" rows="2" placeholder="Arızanın sebebini açıklayın"></textarea>
+                        </div>
+                        <div class="mb-3" id="maintenanceDetailsGroup" style="display: none;">
+                            <label for="editMaintenanceTasks" class="form-label">Yapılacak İşlemler</label>
+                            <textarea class="form-control" id="editMaintenanceTasks" rows="2" placeholder="Yapılması gereken işlemleri açıklayın"></textarea>
                         </div>
                     </form>
                 </div>

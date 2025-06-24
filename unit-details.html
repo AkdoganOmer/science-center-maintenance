@@ -83,6 +83,14 @@
                                         <th>Son Bakım:</th>
                                         <td id="lastMaintenance"></td>
                                     </tr>
+                                    <tr id="faultyDetailsRow" style="display: none;">
+                                        <th>Arıza Sebebi:</th>
+                                        <td id="faultyReason"></td>
+                                    </tr>
+                                    <tr id="maintenanceDetailsRow" style="display: none;">
+                                        <th>Yapılacak İşlemler:</th>
+                                        <td id="maintenanceTasks"></td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -173,10 +181,23 @@
                         </div>
                         <div class="mb-3">
                             <label for="editUnitStatus" class="form-label">Durum</label>
-                            <select class="form-select" id="editUnitStatus">
+                            <select class="form-select" id="editUnitStatus" required>
                                 <option value="Çalışıyor">Çalışıyor</option>
                                 <option value="Arızalı">Arızalı</option>
+                                <option value="Bakımda">Bakımda</option>
                             </select>
+                        </div>
+                        <div class="mb-3" id="faultyDetailsGroup" style="display: none;">
+                            <label for="editFaultyReason" class="form-label">Arıza Sebebi <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="editFaultyReason" rows="3" 
+                                placeholder="Arızanın detaylı açıklamasını yazın. Örnek: Ekran yanıt vermiyor, düğmeler çalışmıyor, vb."></textarea>
+                            <div class="form-text">Arızanın tam olarak ne olduğunu ve nasıl ortaya çıktığını açıklayın.</div>
+                        </div>
+                        <div class="mb-3" id="maintenanceDetailsGroup" style="display: none;">
+                            <label for="editMaintenanceTasks" class="form-label">Yapılması Gereken İşlemler <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="editMaintenanceTasks" rows="3"
+                                placeholder="Arızayı gidermek için yapılması gereken işlemleri yazın. Örnek: Ekran kartı değişimi, yazılım güncellemesi, vb."></textarea>
+                            <div class="form-text">Arızayı gidermek için gerekli parça, işlem ve özel notları belirtin.</div>
                         </div>
                         <div class="mb-3">
                             <label for="editTechnicalDetails" class="form-label">Teknik Detaylar ve Bakım Talimatları</label>

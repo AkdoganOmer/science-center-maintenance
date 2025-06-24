@@ -292,9 +292,17 @@ async function addUnit() {
 
     const name = document.getElementById('unitName').value;
     const description = document.getElementById('unitDescription').value;
+    const status = document.getElementById('unitStatus').value;
+    const faultyReason = document.getElementById('faultyReason').value;
+    const maintenanceTasks = document.getElementById('maintenanceTasks').value;
     
     if (!name) {
         alert('Ünite adı zorunludur!');
+        return;
+    }
+
+    if (status === 'Arızalı' && !faultyReason) {
+        alert('Arıza sebebi zorunludur!');
         return;
     }
 
@@ -318,7 +326,9 @@ async function addUnit() {
             id: newId,
             name: name,
             description: description,
-            status: "Çalışıyor",
+            status: status,
+            faultyReason: status === 'Arızalı' ? faultyReason : null,
+            maintenanceTasks: status === 'Arızalı' ? maintenanceTasks : null,
             lastMaintenance: new Date().toISOString().split('T')[0]
         };
 
@@ -374,9 +384,33 @@ async function editUnit(unitId) {
             document.getElementById('editUnitName').value = unit.name;
             document.getElementById('editUnitDescription').value = unit.description || '';
             document.getElementById('editUnitStatus').value = unit.status || 'Çalışıyor';
+            document.getElementById('editFaultyReason').value = unit.faultyReason || '';
+            document.getElementById('editMaintenanceTasks').value = unit.maintenanceTasks || '';
+            
+            // Arıza detaylarını göster/gizle
+            const faultyDetailsGroup = document.getElementById('faultyDetailsGroup');
+            const maintenanceDetailsGroup = document.getElementById('maintenanceDetailsGroup');
+            if (unit.status === 'Arızalı') {
+                faultyDetailsGroup.style.display = '';
+                maintenanceDetailsGroup.style.display = '';
+            } else {
+                faultyDetailsGroup.style.display = 'none';
+                maintenanceDetailsGroup.style.display = 'none';
+            }
             
             const modal = new bootstrap.Modal(document.getElementById('editUnitModal'));
             modal.show();
+
+            // Durum değiştiğinde alanları göster/gizle
+            document.getElementById('editUnitStatus').addEventListener('change', function() {
+                if (this.value === 'Arızalı') {
+                    faultyDetailsGroup.style.display = '';
+                    maintenanceDetailsGroup.style.display = '';
+                } else {
+                    faultyDetailsGroup.style.display = 'none';
+                    maintenanceDetailsGroup.style.display = 'none';
+                }
+            });
         } else {
             alert('Ünite bulunamadı!');
         }
@@ -397,9 +431,16 @@ async function updateUnit() {
     const name = document.getElementById('editUnitName').value;
     const description = document.getElementById('editUnitDescription').value;
     const status = document.getElementById('editUnitStatus').value;
+    const faultyReason = document.getElementById('editFaultyReason').value;
+    const maintenanceTasks = document.getElementById('editMaintenanceTasks').value;
 
     if (!name) {
         alert('Ünite adı zorunludur!');
+        return;
+    }
+
+    if (status === 'Arızalı' && !faultyReason) {
+        alert('Arıza sebebi zorunludur!');
         return;
     }
 
@@ -423,6 +464,8 @@ async function updateUnit() {
                 name: name,
                 description: description,
                 status: status,
+                faultyReason: status === 'Arızalı' ? faultyReason : null,
+                maintenanceTasks: status === 'Arızalı' ? maintenanceTasks : null,
                 lastMaintenance: new Date().toISOString().split('T')[0]
             };
 
@@ -503,4 +546,17 @@ function formatDate(dateString) {
 document.addEventListener('DOMContentLoaded', () => {
     checkAdminAccess();
     initializeFirebase();
+});
+
+// Add event listener for unit status change in add unit modal
+document.getElementById('unitStatus').addEventListener('change', function() {
+    const faultyDetailsGroup = document.getElementById('faultyDetailsGroup');
+    const maintenanceDetailsGroup = document.getElementById('maintenanceDetailsGroup');
+    if (this.value === 'Arızalı') {
+        faultyDetailsGroup.style.display = '';
+        maintenanceDetailsGroup.style.display = '';
+    } else {
+        faultyDetailsGroup.style.display = 'none';
+        maintenanceDetailsGroup.style.display = 'none';
+    }
 }); 
